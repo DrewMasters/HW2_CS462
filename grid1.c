@@ -61,8 +61,8 @@ int main(int argc, char **argv){
 	MPI_Comm_rank(diag, &diag_rank);
 	MPI_Comm_size(diag, &diag_size);
 	
-	printf("diag rank %d/%d world rank %d color %d\n", diag_rank, diag_size,world_rank, color);
-	
+	/*printf("diag rank %d/%d world rank %d color %d\n", diag_rank, diag_size,world_rank, color);
+	*/
 	int token;
 
 	if (diag_rank == 0 && flag != 1){
@@ -70,17 +70,20 @@ int main(int argc, char **argv){
 		MPI_Send(&token, 1, MPI_INT, diag_rank+1, 0, diag);
 		printf("%d sent token\n",world_rank);
 		MPI_Recv(&token, 1, MPI_INT, diag_rank+1, 0, diag, MPI_STATUS_IGNORE);	
-		printf("token back at starting point\n");
+		printf("%d received token from %d. back at start\n",world_rank,token);
 	}
 	else if (flag != 1){
 		MPI_Recv(&token, 1, MPI_INT, diag_rank-1, 0, diag, MPI_STATUS_IGNORE);
 		printf("%d received token from %d\n",world_rank, token);
+		token=world_rank;
 		if (diag_rank+1 != diag_size){
-			token=world_rank;
 			MPI_Send(&token, 1, MPI_INT, diag_rank+1, 0, diag);
 			printf("%d sent token\n",world_rank);
+			
 			MPI_Recv(&token, 1, MPI_INT, diag_rank+1, 0, diag, MPI_STATUS_IGNORE);
-			printf("%d received token from %d\n",world_rank,token);
+			/*printf("if %d received token from %d\n",world_rank,token);
+			*/
+			token=world_rank;
 		}
 		MPI_Send(&token, 1, MPI_INT, diag_rank-1, 0, diag);
 		printf("%d sent token back up diagonal\n", world_rank);
