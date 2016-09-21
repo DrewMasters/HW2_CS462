@@ -53,50 +53,17 @@ int main(int argc, char **argv){
 		/*creates groups out of inner diagonals*/
 		color = world_rank % (n+1);
 	}
-	/*printf("color %d world rank %d world size %d\n", color, world_rank, world_size);
-	*/
+
 	MPI_Comm diag;
 	MPI_Comm_split(MPI_COMM_WORLD, color, world_rank, &diag);
 	int diag_rank, diag_size;
 	MPI_Comm_rank(diag, &diag_rank);
 	MPI_Comm_size(diag, &diag_size);
 	
-	/*printf("diag rank %d/%d world rank %d color %d\n", diag_rank, diag_size,world_rank, color);
-	*/
 	int token;
 	
-	/*code to push token down communicator than back up touching each 
-	 * place in the communicator
-	if (diag_rank == 0 && flag != 1){
-		token = world_rank;
-		MPI_Send(&token, 1, MPI_INT, diag_rank+1, 0, diag);
-		printf("%d sent token\n",world_rank);
-		MPI_Recv(&token, 1, MPI_INT, diag_rank+1, 0, diag, MPI_STATUS_IGNORE);	
-		printf("%d received token from %d. back at start\n",world_rank,token);
-	}
-	else if (flag != 1){
-		MPI_Recv(&token, 1, MPI_INT, diag_rank-1, 0, diag, MPI_STATUS_IGNORE);
-		printf("%d received token from %d\n",world_rank, token);
-		token=world_rank;
-		if (diag_rank+1 != diag_size){
-			MPI_Send(&token, 1, MPI_INT, diag_rank+1, 0, diag);
-			printf("%d sent token\n",world_rank);
-			
-			MPI_Recv(&token, 1, MPI_INT, diag_rank+1, 0, diag, MPI_STATUS_IGNORE);
-			printf("if %d received token from %d\n",world_rank,token);
-			
-			token=world_rank;
-		}
-		MPI_Send(&token, 1, MPI_INT, diag_rank-1, 0, diag);
-		printf("%d sent token back up diagonal\n", world_rank);
-	}
-	else{
-		MPI_Send(&token, 1, MPI_INT, diag_rank, 0, diag);
-		printf("sent token to self %d\n",world_rank);
-		MPI_Recv(&token, 1, MPI_INT, diag_rank, 0, diag, MPI_STATUS_IGNORE);
-		printf("received token from self %d\n",world_rank);
-	}*/
-	int next;
+	int next; /*holds the next place the processor is going to pass
+				the token in the communicator */
 
 	if (diag_rank == 0 && flag != 1){
 		/*starting place of token
@@ -109,15 +76,22 @@ int main(int argc, char **argv){
 		printf("%d received token from %d finished\n",world_rank, token);
 	}
 	else if (flag != 1){
+		/*nodes in communicators that have size greater than one*/
 		MPI_Recv(&token, 1, MPI_INT, diag_rank-1, 0, diag, MPI_STATUS_IGNORE);
 		printf("%d received token from %d\n", world_rank, token);
 		token = world_rank;
+		/* if rank is not equal to the last rank pass token to
+		 * the next node in the communicator (rank + 1)
+		 * else it is the last rank in communicator than the next 
+		 * place to receive the token is the start or rank 0
+		 */
 		if (diag_rank+1!=diag_size) next = diag_rank+1;
 		else next = 0;
 		MPI_Send(&token, 1, MPI_INT, next, 0, diag);
 		printf("%d sent token to diag rank %d\n",world_rank,next);
 	}
 	else{
+		/* communicators that have a size of one */
 		MPI_Send(&token, 1, MPI_INT, diag_rank, 0, diag);
 		printf("sent token to self %d\n",world_rank);
 		MPI_Recv(&token, 1, MPI_INT, diag_rank, 0, diag, MPI_STATUS_IGNORE);
