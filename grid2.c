@@ -93,67 +93,13 @@ int main(int argc, char **argv){
 	/*printf("color1 %d diag rank %d/%d world rank %d\n", color1, diag_rank1, diag_size1,world_rank);
 	printf("color2 %d diag rank %d/%d world rank %d\n", color2, diag_rank2, diag_size2,world_rank);
 	*/
-	int token;
+	int token1[3],token2[3];
+	int t_size=3*sizeof(3);
 	
-	if (diag_rank1 == 0 && flag != 1){
-		token = world_rank;
-		MPI_Send(&token, 1, MPI_INT, diag_rank1+1, 0, diag1);
-		printf("diagonal %d sent token\n",world_rank);
-		MPI_Recv(&token, 1, MPI_INT, diag_rank1+1, 0, diag1, MPI_STATUS_IGNORE);	
-		printf("diagonal %d received token from %d. back at start\n",world_rank,token);
-	}
-	else if (flag != 1){
-		MPI_Recv(&token, 1, MPI_INT, diag_rank1-1, 0, diag1, MPI_STATUS_IGNORE);
-		printf("diagonal %d received token from %d\n",world_rank, token);
-		token=world_rank;
-		if (diag_rank1+1 != diag_size1){
-			MPI_Send(&token, 1, MPI_INT, diag_rank1+1, 0, diag1);
-			printf("diagonal %d sent token\n",world_rank);
-			
-			MPI_Recv(&token, 1, MPI_INT, diag_rank1+1, 0, diag1, MPI_STATUS_IGNORE);
-			printf("diagonal if %d received token from %d\n",world_rank,token);
-			
-			token=world_rank;
-		}
-		MPI_Send(&token, 1, MPI_INT, diag_rank1-1, 0, diag1);
-		printf("diagonal %d sent token back up diagonal\n", world_rank);
-	}
-	else{
-		MPI_Send(&token, 1, MPI_INT, diag_rank1, 0, diag1);
-		printf("diagonal sent token to self %d\n",world_rank);
-		MPI_Recv(&token, 1, MPI_INT, diag_rank1, 0, diag1, MPI_STATUS_IGNORE);
-		printf("diagonal received token from self %d\n",world_rank);
-	}
+	/* pass token alternating communicators until it receives rank 0
+	 * of starting communicator
+	 */
+	
 
-	if (diag_rank2 == 0 && flag != 1){
-		token = world_rank;
-		MPI_Send(&token, 1, MPI_INT, diag_rank2+1, 0, diag2);
-		printf("antidiagonal %d sent token\n",world_rank);
-		MPI_Recv(&token, 1, MPI_INT, diag_rank2+1, 0, diag2, MPI_STATUS_IGNORE);	
-		printf("antidiagonal %d received token from %d. back at start\n",world_rank,token);
-	}
-	else if (flag != 1){
-		MPI_Recv(&token, 1, MPI_INT, diag_rank2-1, 0, diag2, MPI_STATUS_IGNORE);
-		printf("antidiagonal %d received token from %d\n",world_rank, token);
-		token=world_rank;
-		if (diag_rank2+1 != diag_size2){
-			MPI_Send(&token, 1, MPI_INT, diag_rank2+1, 0, diag2);
-			printf("antidiagonal %d sent token\n",world_rank);
-			
-			MPI_Recv(&token, 1, MPI_INT, diag_rank2+1, 0, diag2, MPI_STATUS_IGNORE);
-			printf("antidiagonal if %d received token from %d\n",world_rank,token);
-			
-			token=world_rank;
-		}
-		MPI_Send(&token, 1, MPI_INT, diag_rank2-1, 0, diag2);
-		printf("antidiagonal %d sent token back up\n", world_rank);
-	}
-	else{
-		MPI_Send(&token, 1, MPI_INT, diag_rank2, 0, diag2);
-		printf("antidiagonal sent token to self %d\n",world_rank);
-		MPI_Recv(&token, 1, MPI_INT, diag_rank2, 0, diag2, MPI_STATUS_IGNORE);
-		printf("antidiagonal received token from self %d\n",world_rank);
-	}
-	
 	MPI_Finalize();
 }
