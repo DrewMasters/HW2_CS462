@@ -81,6 +81,12 @@ int main(int argc, char **argv){
 	
 	  printf("color2 %d world rank %d world size %d\n", color2, world_rank, world_size);
 	*/
+
+	/* color 1 are the groups on the diagonals
+	 * color 2 are the groups on the antidiagonals
+	 * diag1 is diagonal communicator
+	 * diag2 is antidiagonal communicator
+	 */
 	MPI_Comm diag1,diag2;
 	MPI_Comm_split(MPI_COMM_WORLD, color1, world_rank, &diag1);
 	MPI_Comm_split(MPI_COMM_WORLD, color2, world_rank, &diag2);
@@ -93,13 +99,122 @@ int main(int argc, char **argv){
 	/*printf("color1 %d diag rank %d/%d world rank %d\n", color1, diag_rank1, diag_size1,world_rank);
 	printf("color2 %d diag rank %d/%d world rank %d\n", color2, diag_rank2, diag_size2,world_rank);
 	*/
-	int token1[3],token2[3];
-	int t_size=3*sizeof(3);
 	
+	/* tokenx[0]: starting world rank 
+	 * tokenx[1]: starting direction of communicator (0 diagonal, 1 antidiagonal)
+	 * tokenx[2]: is this communicator sequence complete (0 no, 1 yes)
+	 */
+	int token1[3],token2[3],token[3];
+	int t_size=3*sizeof(int);
+	/*
+	 * tflagc checks to see if there is a message on the global communicator
+	 * tflaga checks to see if there is a message on the antidiagonal communicator
+	 * tflagd checks to see if there is a message on the diagonal communicator
+	 */
+	int tflagc=0,tflaga=0,tflagd=0;
+	MPI_Status status;
+	flag =0;
 	/* pass token alternating communicators until it receives rank 0
 	 * of starting communicator
 	 */
+	printf("created token and flags %d\n",world_rank);
+	if (diag_rank1 == 0 && diag_rank2 == 0){
+		/*on the diagonal communicator*/
+		printf("in diag rank 0 world rank %d\n",world_rank);
+		token1[0]=world_rank;
+		token1[1]=0;
+		token1[2]=0;
+		
+		MPI_Send(&token1, t_size, MPI_INT, (diag_rank1+1)%diag_size1, 0, diag1);
 	
+		/*on the antidiagonal communicator*/
+		token2[0]=world_rank;
+		token2[1]=1;
+		token2[2]=0;
+
+		MPI_Send(&token2, t_size, MPI_INT, (diag_rank2+1)%diag_size2, 0, diag2);
+		
+		while (flag!=(6+n-2)){
+			while(!tflagc&&!tflaga&&!tflagd){
+				MPI_Iprobe((diag_rank1-1)%diag_size1,1, diag1,&tflagd,&status);
+				MPI_Iprobe((diag_rank2-1)%diag_size2,1,diag2,&tflaga,&status);
+				MPI_Iprobe((world_rank-1)%world_size,1,MPI_COMM_WORLD,&tflagc,&status);
+			}
+
+			if (tflagc){
+				flag++;
+				tflagc=0;
+				MPI_Recv(&token, t_size, MPI_INT, (world_rank-1)%world_size, 0, MPI_COMM_WORLD, &status);
+				if (token[0]!=world_rank) MPI_Send(&token, t_size, MPI_INT, (world_rank+1)%world_size, 0, MPI_COMM_WORLD);
+			}
+			if (tflaga){
+				tflaga=0;
+				
+				if(token[0]!=world_rank || token[1]!=1){
+					MPI_Recv(&token, t_size, MPI_INT, (diag_rank2-1)%diag_size2, 0, diag2, &status);
+					MPI_Send(&token, t_size, MPI_INT, (diag_rank1+1)%diag_size1, 0, diag1);
+				}
+				else
+				{
+					MPI_Recv(&token, t_size, MPI_INT, (diag_rank2-1)%diag_size2, 0, diag2, &status);
+					token[2]=1;
+					MPI_Send(&token, t_size, MPI_INT, (world_rank+1)%world_size, 0, MPI_COMM_WORLD);
+				}
+			}
+			if (tflagd){
+				tflagd=0;
+
+				if(token[0]!=world_rank || token[1]!=0){
+					MPI_Recv(&token, t_size, MPI_INT, (diag_rank1-1)%diag_size1, 0, diag1, &status);
+					MPI_Send(&token, t_size, MPI_INT, (diag_rank2+1)%diag_size2, 0, diag2);
+				}
+				else{
+					MPI_Recv(&token, t_size, MPI_INT, (diag_rank1-1)%diag_size1, 0, diag1, &status);
+					token[2]=1;
+					MPI_Send(&token, t_size, MPI_INT, (world_rank+1)%world_size, 0, MPI_COMM_WORLD);
+				}
+			}
+		}
+	}
+	else{
+		while (flag!=(6+n-2)){
+			while(!tflagc&&!tflaga&&!tflagd){
+				MPI_Iprobe((diag_rank1-1)%diag_size1,1, diag1,&tflagd,&status);
+				MPI_Iprobe((diag_rank2-1)%diag_size2,1,diag2,&tflaga,&status);
+				MPI_Iprobe((world_rank-1)%world_size,1,MPI_COMM_WORLD,&tflagc,&status);
+			}
+
+			if (tflagc){
+				/*
+				 * global communicator keeps track of how many of 
+				 * the communicators are finished. Once all of the
+				 * communicators are finished end the loop
+				 */
+				flag++;
+				tflagc=0;
+				MPI_Recv(&token, t_size, MPI_INT, (world_rank-1)%world_size, 0, MPI_COMM_WORLD, &status);
+				MPI_Send(&token, t_size, MPI_INT, (world_rank+1)%world_size, 0, MPI_COMM_WORLD);
+			}
+			if (tflaga){
+				/*
+				 * token received on antidiagonal.
+				 * send token along diagonal
+				 */
+				tflaga=0;
+				MPI_Recv(&token, t_size, MPI_INT, (diag_rank2-1)%diag_size2, 0, diag2, &status);
+				MPI_Send(&token, t_size, MPI_INT, (diag_rank1+1)%diag_size1, 0, diag1);
+			}
+			if (tflagd){
+				/*
+				 * token received on diagonal.
+				 * send token along antidiagonal
+				 */
+				tflagd=0;
+				MPI_Recv(&token, t_size, MPI_INT, (diag_rank1-1)%diag_size1, 0, diag1, &status);
+				MPI_Send(&token, t_size, MPI_INT, (diag_rank2+1)%diag_size2, 0, diag2);
+			}
+		}
+	}
 
 	MPI_Finalize();
 }
