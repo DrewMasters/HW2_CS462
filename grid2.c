@@ -94,13 +94,19 @@ int main(int argc, char **argv){
 	MPI_Comm_rank(diag2, &diag_rank2);
 	MPI_Comm_size(diag2, &diag_size2);
 
+	/*
+	 * prints out which diagonal the process belongs to
+	 * color1 is which diagonal the process belongs to
+	 * color2 is which antidiagonal the process belongs
+	 */
 	printf("color1 %d diag rank %d/%d world rank %d\n", color1, diag_rank1, diag_size1,world_rank);
 	printf("color2 %d diag rank %d/%d world rank %d\n", color2, diag_rank2, diag_size2,world_rank);
 	
 	
-	/* tokenx[0]: starting world rank 
-	 * tokenx[1]: starting direction of communicator (0 diagonal, 1 antidiagonal)
-	 * tokenx[2]: is this communicator sequence complete (0 no, 1 yes)
+	/* 
+	 * token[0]: starting world rank 
+	 * token[1]: starting direction of communicator (0 diagonal, 1 antidiagonal)
+	 * token[2]: is this communicator sequence complete (0 no, 1 yes)
 	 */
 	int token1[3],token2[3],token[3];
 	int t_size=3*sizeof(int);
@@ -118,148 +124,131 @@ int main(int argc, char **argv){
 	token[2]=-1;
 
 
-	/* pass token alternating communicators until it receives rank 0
+	/*
+	 * pass token alternating communicators until it receives rank 0
 	 * of starting communicator
 	 */
-	printf("%d will end when flag=%d\n",world_rank,n*2+2*(n-1));
-	if (diag_rank1 == 0 || diag_rank2 == 0){
-		/*on the diagonal communicator*/
-		printf("in diag rank 0 world rank %d\n",world_rank);
-		if(diag_rank1 ==0){
-			printf("%d about to start diagonal\n",world_rank);
-			token1[0]=world_rank;
-			token1[1]=0;
-			token1[2]=0;
-			MPI_Send(&token1, 3*sizeof(int), MPI_INT, 
-					(diag_rank1+1)%diag_size1, 0, diag1);
-			printf("%d started token on diagonal\n",world_rank);
-		}
-		/*on the antidiagonal communicator*/
-		if (diag_rank2 ==0){
-			printf("%d about to start antidiagonal\n",world_rank);
-			token2[0]=world_rank;
-			token2[1]=1;
-			token2[2]=0;
-			MPI_Send(&token2, 3*sizeof(int), MPI_INT, 
-					(diag_rank2+1)%diag_size2, 0, diag2);
-			printf("%d started token on antidiagonal\n",world_rank);
-		}
-		while (flag!=n*2+2*(n-1)){
-			printf("%d flag currently is %d/%d\n",world_rank,flag,n*2+2*(n-1));
-			while(!tflagc&&!tflaga&&!tflagd){
-				MPI_Iprobe((diag_rank1-1)%diag_size1,0,
-						diag1,&tflagd,&status);
-				MPI_Iprobe((diag_rank2-1)%diag_size2,0,
-						diag2,&tflaga,&status);
-				MPI_Iprobe((world_rank-1)%world_size,0,
-						MPI_COMM_WORLD,&tflagc,&status);
-			}
 
-			printf("%d tflagc: %d tflaga: %d tflagd: %d\n",
-					world_rank,tflagc,tflaga,tflagd);
-
-			if (tflagc){
-				printf("%d flag: %d before increment\n",world_rank,flag);
-				flag++;
-				printf("%d flag: %d after increment\n",world_rank,flag);
-				tflagc=0;
-
-				MPI_Recv(&token, 3*sizeof(int), MPI_INT, 
-						(world_rank-1)%world_size, 0, MPI_COMM_WORLD, &status);
-				printf("%d received token for %d that is on %d\n",world_rank,token[0],token[1]);
-				if (token[0]!=world_rank){
-					MPI_Send(&token, 3*sizeof(int), 
-						MPI_INT, (world_rank+1)%world_size, 0, MPI_COMM_WORLD);
-					printf("%d sent finished token for %d along world\n",world_rank,token[0]);
-				}
-				else printf("%d token for %d has finished\n",token[1], world_rank);
-			}
-			if (tflaga){
-				tflaga=0;
-
-				if(token[0]!=world_rank || token[1]!=1){
-					MPI_Recv(&token, 3*sizeof(int), MPI_INT, 
-							(diag_rank2-1)%diag_size2, 0, diag2, &status);
-					MPI_Send(&token, 3*sizeof(int), MPI_INT, 
-							(diag_rank1+1)%diag_size1, 0, diag1);
-				}
-				else
-				{
-					MPI_Recv(&token, 3*sizeof(int), MPI_INT, 
-							(diag_rank2-1)%diag_size2, 0, diag2, &status);
-					token[2]=1;
-					MPI_Send(&token, 3*sizeof(int), MPI_INT, 
-							(world_rank+1)%world_size, 0, MPI_COMM_WORLD);
-				}
-			}
-			if (tflagd){
-				tflagd=0;
-
-				if(token[0]!=world_rank || token[1]!=0){
-					MPI_Recv(&token, 3*sizeof(int), MPI_INT, 
-							(diag_rank1-1)%diag_size1, 0, diag1, &status);
-					MPI_Send(&token, 3*sizeof(int), MPI_INT, 
-							(diag_rank2+1)%diag_size2, 0, diag2);
-				}
-				else{
-					MPI_Recv(&token, 3*sizeof(int), MPI_INT, 
-							(diag_rank1-1)%diag_size1, 0, diag1, &status);
-					token[2]=1;
-					MPI_Send(&token, 3*sizeof(int), MPI_INT, 
-							(world_rank+1)%world_size, 0, MPI_COMM_WORLD);
-				}
-			}
-		}
+	/*
+	 * if process is rank o on the diagonal communicator
+	 * start token
+	 * */
+	if(diag_rank1 ==0){
+		token1[0]=world_rank;
+		token1[1]=0;
+		token1[2]=0;
+		MPI_Send(&token1, 3*sizeof(int), MPI_INT, 
+				(diag_rank1+1)%diag_size1, 0, diag1);
+		printf("%d started token on diagonal\n",world_rank);
 	}
-	else{
-		printf("%d is in else\n",world_rank);
-		printf("%d will stop when flag=%d\n",world_rank,n*2-1);
-		while (flag!=n*2+2*(n-1)){
-			while(!tflagc&&!tflaga&&!tflagd){
-				MPI_Iprobe((diag_rank1-1)%diag_size1,
-						0, diag1,&tflagd,&status);
-				MPI_Iprobe((diag_rank2-1)%diag_size2,
-						0,diag2,&tflaga,&status);
-				MPI_Iprobe((world_rank-1)%world_size,
-						0,MPI_COMM_WORLD,&tflagc,&status);
+	/*
+	 * if process is rank 0 on the antidiagonal communicator
+	 * start token
+	 * */
+	if (diag_rank2 ==0){
+		token2[0]=world_rank;
+		token2[1]=1;
+		token2[2]=0;
+		MPI_Send(&token2, 3*sizeof(int), MPI_INT, 
+				(diag_rank2+1)%diag_size2, 0, diag2);
+		printf("%d started token on antidiagonal\n",world_rank);
+	}
+	/*
+	 * pass tokens until all tokens are back at starting point
+	 * flag keeps track of how many tokens are back at starting point
+	 * total tokens is equal to n*2+2*(n-1) 
+	 */
+	while (flag!=n*2+2*(n-1)-1){
+		//printf("%d flag currently is %d/%d\n",world_rank,flag,n*2+2*(n-1));
+		while(!tflagc&&!tflaga&&!tflagd){
+			/*
+			 * check to see if there are any messages 
+			 * on any of the communicators
+			 */
+			MPI_Iprobe((diag_rank1-1)%diag_size1,0,
+					diag1,&tflagd,&status);
+			MPI_Iprobe((diag_rank2-1)%diag_size2,0,
+					diag2,&tflaga,&status);
+			MPI_Iprobe((world_rank-1)%world_size,0,
+					MPI_COMM_WORLD,&tflagc,&status);
+		}
+		
+		/*
+		 * message on main communicator saying a token is 
+		 * back at starting place
+		 */
+		if (tflagc){
+			flag++;
+			tflagc=0;
+
+			MPI_Recv(&token, 3*sizeof(int), MPI_INT, 
+					(world_rank-1)%world_size, 0, MPI_COMM_WORLD, &status);
+			if (token[0]!=world_rank){
+				MPI_Send(&token, 3*sizeof(int), 
+						MPI_INT, (world_rank+1)%world_size, 0, MPI_COMM_WORLD);
 			}
-			if (tflagc){
+			else printf("%d token for %d has finished\n",token[1], world_rank);
+		}
+		/*
+		 * token on the antidiagonal
+		 */
+		if (tflaga){
+			tflaga=0;
+
+			if(token[0]!=world_rank || token[1]!=1){
 				/*
-				 * global communicator keeps track of how many of 
-				 * the communicators are finished. Once all of the
-				 * communicators are finished end the loop
+				 * either token is not back at starting position
+				 * or token is back at starting process but not on
+				 * correct communicator path
 				 */
-				printf("%d flag: %d before increment\n",world_rank,flag);
-				flag++;
-				printf("%d flag: %d after increment\n",world_rank,flag);
-				tflagc=0;
-				MPI_Recv(&token, 3*sizeof(int), MPI_INT, 
-						(world_rank-1)%world_size, 0, MPI_COMM_WORLD, &status);
-				printf("%d received token for %d that is on %d\n",world_rank,token[0],token[1]);
-				MPI_Send(&token, 3*sizeof(int), MPI_INT, 
-						(world_rank+1)%world_size, 0, MPI_COMM_WORLD);
-			}
-			if (tflaga){
-				/*
-				 * token received on antidiagonal.
-				 * send token along diagonal
-				 */
-				tflaga=0;
 				MPI_Recv(&token, 3*sizeof(int), MPI_INT, 
 						(diag_rank2-1)%diag_size2, 0, diag2, &status);
+				printf("%d received token for %d that is on %d\n",world_rank,token[0],token[1]);
 				MPI_Send(&token, 3*sizeof(int), MPI_INT, 
 						(diag_rank1+1)%diag_size1, 0, diag1);
 			}
-			if (tflagd){
+			else
+			{
 				/*
-				 * token received on diagonal.
-				 * send token along antidiagonal
+				 * token is back at starting position
 				 */
-				tflagd=0;
+				MPI_Recv(&token, 3*sizeof(int), MPI_INT, 
+						(diag_rank2-1)%diag_size2, 0, diag2, &status);
+				printf("%d received antidiagonal token\n",world_rank);
+				token[2]=1;
+				MPI_Send(&token, 3*sizeof(int), MPI_INT, 
+						(world_rank+1)%world_size, 0, MPI_COMM_WORLD);
+			}
+		}
+		/*
+		 * token on the diagonal
+		 */
+		if (tflagd){
+			tflagd=0;
+
+			if(token[0]!=world_rank || token[1]!=0){
+				/*
+				 * either token is not back at starting position
+				 * or token is back at starting process but not on
+				 * correct communicator path
+				 */
 				MPI_Recv(&token, 3*sizeof(int), MPI_INT, 
 						(diag_rank1-1)%diag_size1, 0, diag1, &status);
+				printf("%d diagonal received token for %d that is on %d\n",world_rank,token[0],token[1]);
 				MPI_Send(&token, 3*sizeof(int), MPI_INT, 
 						(diag_rank2+1)%diag_size2, 0, diag2);
+			}
+			else{
+				/*
+				 * token is back at starting position
+				 * send message on main communicator and let other processes know
+				 */
+				MPI_Recv(&token, 3*sizeof(int), MPI_INT, 
+						(diag_rank1-1)%diag_size1, 0, diag1, &status);
+				printf("%d received diagonal token\n",world_rank);
+				token[2]=1;
+				MPI_Send(&token, 3*sizeof(int), MPI_INT, 
+						(world_rank+1)%world_size, 0, MPI_COMM_WORLD);
 			}
 		}
 	}
