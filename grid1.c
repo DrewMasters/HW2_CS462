@@ -54,6 +54,8 @@ int main(int argc, char **argv){
 		color = world_rank % (n+1);
 	}
 
+	printf("%d belongs to diagonal %d\n",world_rank,color);
+
 	MPI_Comm diag;
 	MPI_Comm_split(MPI_COMM_WORLD, color, world_rank, &diag);
 	int diag_rank, diag_size;
