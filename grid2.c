@@ -135,7 +135,7 @@ int main(int argc, char **argv){
 	 * */
 	if(diag_rank1 ==0){
 		token1[0]=world_rank;
-		token1[1]=0;
+		token0[1]=0;
 		token1[2]=0;
 		MPI_Send(&token1, 3*sizeof(int), MPI_INT, 
 				(diag_rank1+1)%diag_size1, 0, diag1);
